@@ -4,13 +4,6 @@
 
 Closes #<!-- issue number -->
 
-## Type of change
-
-- [ ] Feature (from an issue)
-- [ ] Bug fix (`fix/...` branch)
-- [ ] Documentation
-- [ ] Refactor / cleanup
-
 ## What was done
 
 <!-- Bullet points of the actual changes. -->
