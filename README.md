@@ -41,7 +41,6 @@ Alongside the neural data, the lab uses behavioral signals : running speed, lick
 DeepLabCut and all other libraries are installed as **pinned dependencies in an isolated environment**; they are never copied into this repository.
 
 ```bash
-# example — not yet finalized
 conda create -n ml4science python=3.10
 conda activate ml4science
 pip install -r requirements.txt
@@ -50,6 +49,22 @@ pip install -r requirements.txt
 ## Data
 
 The data is provided by the Priestley Lab and is **not** included in this repository (`data/` is gitignored). Instructions on how to obtain and place the data will be added here later after discussion with the lab and the CS-433 team.
+
+## Code style
+
+We keep code readable through clear naming and type hints rather than heavy commenting. Inline comments are reserved for the non-obvious *why* — never to restate what the code already says.
+
+Functions and classes are documented with concise docstrings:
+- a one-line summary of what it does, in the imperative;
+- an `Args:` / `Returns:` block only when the signature isn't self-explanatory.
+
+Trivial helpers may rely on a descriptive name and type hints alone.
+
+```python
+def normalize_contrast(frame: np.ndarray, clip_limit: float = 2.0) -> np.ndarray:
+    """Apply CLAHE contrast normalization to a grayscale frame."""
+    ...
+```
 
 ## Team process
 
@@ -60,6 +75,9 @@ Before any code is written, the change is described in a GitHub issue with a cle
 
 **2. Branches are created from their issue.**
 We do not create branches by hand with arbitrary names. We open the issue and use GitHub's *"Create a branch"* link, which produces a branch already linked to the issue and named with the `<issue-number>-issue-title` convention (e.g. `18-add-clahe-contrast-normalization`). Because the branch is tied to its issue, any line of code can be traced back to the reason it exists — which is also why issue titles must be meaningful.
+
+**Commit messages.**
+Commits are written in the imperative mood and capture one logical change: *"Add CLAHE contrast normalization"*. The subject line is short (~50 characters), capitalized, with no trailing period. When the reason for a change isn't obvious from the subject, a short body explains the *why*. This keeps `git log` readable as a record of decisions rather than noise.
 
 **3. Bug fixes may skip the issue, but not the naming.**
 When a bug reaches the repository and needs a direct correction, a fixing branch can be created without opening an issue first. It must still follow the `fix/<short-description>` convention (e.g. `fix/flipped-eye-keypoint-order`). Everything below still applies.
