@@ -1,0 +1,16 @@
+# Core scientific stack
+numpy
+pandas
+matplotlib
+scikit-learn
+
+# Image processing (phase 1)
+opencv-python
+scikit-image
+
+# Pose estimation
+deeplabcut[gui]
+
+# Notebooks & utilities
+jupyter
+tqdm
