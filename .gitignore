@@ -1,3 +1,6 @@
+# The data that shouldn't end up on the repo
+data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
