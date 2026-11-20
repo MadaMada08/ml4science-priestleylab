@@ -121,6 +121,7 @@ numexpr==2.14.1
 numpy==2.2.6
 opencv-python==5.0.0.93
 opencv-python-headless==5.0.0.93
+openpyxl==<version>
 overrides==7.7.0
 packaging==26.3
 pandas==2.3.3
