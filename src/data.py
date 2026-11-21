@@ -22,7 +22,9 @@ COORDS = ["x", "y"]
 DEFAULT_SCORER = "dani"
 
 
-def load_session_labels(session_dir: Path, scorer: str = DEFAULT_SCORER) -> pd.DataFrame:
+def load_session_labels(
+    session_dir: Path, scorer: str = DEFAULT_SCORER
+) -> pd.DataFrame:
     """Load one session's labels, indexed by (session, image) with (bodypart, coord) columns.
 
     Images present in the folder but missing from the label file are added as all-NaN rows:
@@ -31,17 +33,28 @@ def load_session_labels(session_dir: Path, scorer: str = DEFAULT_SCORER) -> pd.D
     session_dir = Path(session_dir)
     session = session_dir.name
     raw = pd.read_hdf(session_dir / f"CollectedData_{scorer}.h5")
-
+    if not isinstance(raw, pd.DataFrame):
+        raise TypeError(
+            f"Expected a DataFrame in {session_dir}, got {type(raw).__name__}."
+        )
     labels = raw.droplevel("scorer", axis=1)
-    labels = labels.reindex(columns=pd.MultiIndex.from_product([BODYPARTS, COORDS], names=["bodyparts", "coords"]))
+    labels = labels.reindex(
+        columns=pd.MultiIndex.from_product(
+            [BODYPARTS, COORDS], names=["bodyparts", "coords"]
+        )
+    )
     images = [str(idx[-1]) for idx in labels.index]
-    labels.index = pd.MultiIndex.from_arrays([[session] * len(images), images], names=["session", "image"])
+    labels.index = pd.MultiIndex.from_arrays(
+        [[session] * len(images), images], names=["session", "image"]
+    )
 
     unlabeled = sorted({p.name for p in session_dir.glob("*.png")} - set(images))
     if unlabeled:
         empty = pd.DataFrame(
             np.nan,
-            index=pd.MultiIndex.from_product([[session], unlabeled], names=["session", "image"]),
+            index=pd.MultiIndex.from_product(
+                [[session], unlabeled], names=["session", "image"]
+            ),
             columns=labels.columns,
         )
         labels = pd.concat([labels, empty])
@@ -56,7 +69,10 @@ def load_labels(labeled_data_dir: Path, scorer: str = DEFAULT_SCORER) -> pd.Data
         if not session_dir.is_dir():
             continue
         if not (session_dir / f"CollectedData_{scorer}.h5").exists():
-            warnings.warn(f"Session {session_dir.name} has no CollectedData_{scorer}.h5, skipped.", stacklevel=2)
+            warnings.warn(
+                f"Session {session_dir.name} has no CollectedData_{scorer}.h5, skipped.",
+                stacklevel=2,
+            )
             continue
         sessions.append(load_session_labels(session_dir, scorer))
     return pd.concat(sessions)
@@ -85,28 +101,36 @@ def eye_width(labels: pd.DataFrame) -> pd.Series:
     """Anterior-posterior eye distance per frame, in pixels; the natural scale for normalizing errors."""
     dx = labels[("eye-anterior", "x")] - labels[("eye-posterior", "x")]
     dy = labels[("eye-anterior", "y")] - labels[("eye-posterior", "y")]
-    return np.hypot(dx, dy).rename("eye_width_px")
+    return pd.Series(np.hypot(dx, dy), index=labels.index, name="eye_width_px")
 
 
 def session_summary(labels: pd.DataFrame, metadata: pd.DataFrame) -> pd.DataFrame:
     """One row per labeled session: frame counts, eye size and the lab's metadata."""
-    by_session = labels.groupby(level="session")
-    xs = labels.xs("x", level="coords", axis=1)
+    sessions = labels.index.get_level_values("session")
+    anterior_left = labels[("eye-anterior", "x")] < labels[("eye-posterior", "x")]
     summary = pd.DataFrame(
         {
-            "frames": by_session.size(),
-            "eye_not_visible": labels.isna().all(axis=1).groupby(level="session").sum(),
-            "frames_with_missing_keypoints": labels.isna().any(axis=1).groupby(level="session").sum(),
-            "eye_width_px": eye_width(labels).groupby(level="session").mean().round(1),
-            "anterior_side": np.where(
-                (xs["eye-anterior"] < xs["eye-posterior"]).groupby(level="session").mean() > 0.5, "left", "right"
-            ),
+            "frames": labels.groupby(level="session").size(),
+            "eye_not_visible": labels.isna().all(axis=1).groupby(sessions).sum(),
+            "frames_with_missing_keypoints": labels.isna()
+            .any(axis=1)
+            .groupby(sessions)
+            .sum(),
+            "eye_width_px": eye_width(labels).groupby(sessions).mean().round(1),
+            "anterior_side": anterior_left.groupby(sessions)
+            .mean()
+            .gt(0.5)
+            .map({True: "left", False: "right"}),
         }
     )
     return summary.join(metadata[["mouse", "setup", "difficulty", "comments"]])
 
 
-def load_dataset(data_dir: Path, scorer: str = DEFAULT_SCORER) -> tuple[pd.DataFrame, pd.DataFrame]:
+def load_dataset(
+    data_dir: Path, scorer: str = DEFAULT_SCORER
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load labels and metadata from a `data/` folder holding `labeled-data/` and `metadata.xlsx`."""
     data_dir = Path(data_dir)
-    return load_labels(data_dir / "labeled-data", scorer), load_metadata(data_dir / "metadata.xlsx")
+    return load_labels(data_dir / "labeled-data", scorer), load_metadata(
+        data_dir / "metadata.xlsx"
+    )
