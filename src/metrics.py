@@ -19,9 +19,17 @@ PREDICTION_COORDS = ["x", "y", "likelihood"]
 
 
 def find_predictions(project: Path, shuffle: int, snapshot: int) -> Path:
-    """Return the predictions file DLC's evaluation wrote for one shuffle and snapshot."""
+    """Return the predictions file DLC's evaluation wrote for one shuffle and snapshot.
+
+    When the last epoch is also the best one, DLC saves the final model as snapshot-best-<epoch>,
+    so both names are accepted.
+    """
     eval_dir = Path(project) / "evaluation-results-pytorch" / "iteration-0"
-    matches = list(eval_dir.glob(f"*shuffle{shuffle}/*_snapshot_{snapshot:03d}.h5"))
+    matches = [
+        path
+        for uid in (f"{snapshot}", f"best-{snapshot}")
+        for path in eval_dir.glob(f"*shuffle{shuffle}/*_snapshot_{uid}.h5")
+    ]
     if len(matches) != 1:
         raise FileNotFoundError(
             f"Expected one predictions file for shuffle {shuffle}, snapshot {snapshot}, "
