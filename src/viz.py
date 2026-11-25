@@ -157,6 +157,15 @@ def compare(project, session, image=None, shuffle=1, pcutoff=0.6):
     plt.tight_layout(); plt.show()
 
 
+def show_all_variants(session, data_root="./data"):
+    """Show the ground-truth frame for `session` in every data/labeled-data* variant."""
+    variants = sorted(p for p in Path(data_root).glob("labeled-data*") if p.is_dir())
+    for v in variants:
+        if (v / session).exists():
+            print(v.name)
+            show_ground_truth(v, session)
+
+
 # ----- training curves --------------------------------------------------------
 
 def load_training_stats(project, shuffle=1):
