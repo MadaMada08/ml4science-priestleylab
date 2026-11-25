@@ -38,6 +38,14 @@ def load_session_labels(
             f"Expected a DataFrame in {session_dir}, got {type(raw).__name__}."
         )
     labels = raw.droplevel("scorer", axis=1)
+    # reindex would silently turn a file with other bodypart names (e.g. the lab's original
+    # eye-left/eye-right export) into all-NaN labels, so check first.
+    missing = set(BODYPARTS) - set(labels.columns.get_level_values("bodyparts"))
+    if missing:
+        raise ValueError(
+            f"{session_dir / f'CollectedData_{scorer}.h5'} lacks bodyparts {sorted(missing)}; "
+            "convert it to anatomical names first (python -m src.canonicalize)."
+        )
     labels = labels.reindex(
         columns=pd.MultiIndex.from_product(
             [BODYPARTS, COORDS], names=["bodyparts", "coords"]
