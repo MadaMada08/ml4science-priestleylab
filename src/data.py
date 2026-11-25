@@ -134,6 +134,48 @@ def session_summary(labels: pd.DataFrame, metadata: pd.DataFrame) -> pd.DataFram
     return summary.join(metadata[["mouse", "setup", "difficulty", "comments"]])
 
 
+# Read off the frames by eye: bright-pupil IR illumination makes the pupil white.
+PUPIL_POLARITY = {
+    "094124": "dark",
+    "110535": "bright",
+    "115300": "bright",
+    "131707": "dark",
+    "135059": "dark",
+    "171101": "dark",
+    "172731": "bright",
+    "214411": "bright",
+}
+LARGE_EYE_PX = 125  # the two camera setups give ~95-100 px and ~150-170 px eye widths
+
+
+def session_conditions(labels: pd.DataFrame) -> pd.DataFrame:
+    """One row per session: which way the eye faces, eye size class and pupil polarity."""
+    sessions = labels.index.get_level_values("session")
+    anterior_left = labels[("eye-anterior", "x")] < labels[("eye-posterior", "x")]
+    width = eye_width(labels).groupby(sessions).median()
+    conditions = pd.DataFrame(
+        {
+            "anterior_side": anterior_left.groupby(sessions)
+            .mean()
+            .gt(0.5)
+            .map({True: "left", False: "right"}),
+            "eye_size": width.gt(LARGE_EYE_PX).map({True: "large", False: "small"}),
+            "pupil": pd.Series(PUPIL_POLARITY),
+        }
+    )
+    return conditions.loc[width.index]
+
+
+def unseen_condition_sessions(conditions: pd.DataFrame) -> list[str]:
+    """Sessions whose combination of conditions no other session has.
+
+    Held out, these are the sessions a model has to generalize to; report them separately,
+    since averaging over all sessions hides their errors.
+    """
+    combo = conditions.apply(tuple, axis=1)
+    return sorted(combo[~combo.duplicated(keep=False)].index)
+
+
 def load_dataset(
     data_dir: Path, scorer: str = DEFAULT_SCORER
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
