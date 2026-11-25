@@ -82,9 +82,10 @@ def train_all(config_path, max_iters=50000, **kw):
                                  max_iters=max_iters, **kw)
 
 
-def evaluate_all(config_path):
-    """Evaluate all three scenario shuffles with plots and per-keypoint error."""
+def evaluate_all(config_path, plotting=False):
+    """Evaluate all three scenario shuffles. plotting=True also writes DLC's
+    per-frame overlays (needs Windows long paths enabled)."""
     for sh in _splits.SCENARIOS:
         tsi = _trainset_index(config_path, sh)
         deeplabcut.evaluate_network(config_path, Shuffles=[sh], trainingsetindex=tsi,
-                                    plotting=True, per_keypoint_evaluation=True)
+                                    plotting=plotting, per_keypoint_evaluation=True)
