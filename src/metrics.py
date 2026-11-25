@@ -27,7 +27,7 @@ def find_predictions(project: Path, shuffle: int, snapshot: int) -> Path:
     eval_dir = Path(project) / "evaluation-results-pytorch" / "iteration-0"
     matches = [
         path
-        for uid in (f"{snapshot}", f"best-{snapshot}")
+        for uid in (f"{snapshot:03d}", f"best-{snapshot:03d}")
         for path in eval_dir.glob(f"*shuffle{shuffle}/*_snapshot_{uid}.h5")
     ]
     if len(matches) != 1:
