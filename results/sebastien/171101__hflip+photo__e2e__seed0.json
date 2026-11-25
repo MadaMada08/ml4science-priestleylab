@@ -1,0 +1,27 @@
+{
+  "test_session": "171101",
+  "condition": "hflip+photo",
+  "train_s": 141.16960883140564,
+  "oracle": {
+    "median_px": 5.92251487492638,
+    "mean_px": 6.732614891839451,
+    "mean_norm": 0.06876036215213299,
+    "pck10": 0.84375,
+    "pck05": 0.33125,
+    "pupil_median_px": 6.283423409068456,
+    "eye_median_px": 5.685770622406035,
+    "orientation": 1.0
+  },
+  "end_to_end": {
+    "median_px": 9.829013410703421,
+    "mean_px": 15.525244711763104,
+    "mean_norm": 0.1567889825306607,
+    "pck10": 0.4875,
+    "pck05": 0.19375,
+    "pupil_median_px": 9.459668259209373,
+    "eye_median_px": 10.74647342387823,
+    "orientation": 0.8,
+    "stage1_center_err_median_px": 7.063946175885452,
+    "stage1_center_err_max_px": 20.602242632633683
+  }
+}

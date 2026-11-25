@@ -1,0 +1,59 @@
+
+== median_px ==
+condition               none   hflip  hflip+photo  hflip+photo+invert
+session                                                              
+094124                 8.494   7.789        7.834               8.661
+110535                30.087  21.953       15.007              14.357
+115300                 5.931   5.712        8.180               5.699
+131707                 9.352   7.774        8.882               7.305
+135059                 8.297  10.373       10.310              11.481
+171101                19.821   7.804        5.923               8.927
+172731                 4.601   4.581        5.490               4.958
+214411                 3.904   5.076        5.309               5.520
+mean (all 8)          11.311   8.883        8.367               8.364
+mean (unseen combos)  24.954  14.878       10.465              11.642
+
+== pck10 ==
+condition              none  hflip  hflip+photo  hflip+photo+invert
+session                                                            
+094124                0.878  0.962        0.922               0.850
+110535                0.218  0.260        0.519               0.535
+115300                0.757  0.761        0.632               0.776
+131707                0.874  0.933        0.820               0.870
+135059                0.844  0.800        0.794               0.700
+171101                0.044  0.669        0.844               0.562
+172731                0.887  0.947        0.903               0.910
+214411                0.950  0.880        0.864               0.831
+mean (all 8)          0.682  0.776        0.787               0.754
+mean (unseen combos)  0.131  0.464        0.681               0.549
+
+== orientation ==
+condition              none  hflip  hflip+photo  hflip+photo+invert
+session                                                            
+094124                1.000    1.0          1.0                 1.0
+110535                0.128    1.0          1.0                 1.0
+115300                1.000    1.0          1.0                 1.0
+131707                1.000    1.0          1.0                 1.0
+135059                1.000    1.0          1.0                 1.0
+171101                0.150    1.0          1.0                 1.0
+172731                1.000    1.0          1.0                 1.0
+214411                1.000    1.0          1.0                 1.0
+mean (all 8)          0.785    1.0          1.0                 1.0
+mean (unseen combos)  0.139    1.0          1.0                 1.0
+
+== seed check ==
+                    median_px          pck10       
+seed                        0       1      0      1
+session condition                                  
+110535  hflip          21.953  20.492  0.260  0.321
+        hflip+photo    15.007  14.797  0.519  0.510
+        none           30.087  41.880  0.218  0.074
+171101  hflip           7.804   9.245  0.669  0.550
+        hflip+photo     5.923   8.158  0.844  0.625
+        none           19.821  16.048  0.044  0.100
+
+== end to end (crops from the stage-1 eye detector) ==
+           condition  median_px  pck10  orientation  stage1_center_err_median_px  stage1_center_err_max_px  median_px_oracle_crop  pck10_oracle_crop
+session                                                                                                                                             
+110535   hflip+photo     14.923  0.542          1.0                       26.270                   216.991                 15.007              0.519
+171101   hflip+photo      9.829  0.488          0.8                        7.064                    20.602                  5.923              0.844

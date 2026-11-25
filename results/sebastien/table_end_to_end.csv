@@ -1,0 +1,3 @@
+session,condition,median_px,pck10,orientation,stage1_center_err_median_px,stage1_center_err_max_px,median_px_oracle_crop,pck10_oracle_crop
+110535,hflip+photo,14.923,0.542,1.0,26.27,216.991,15.007,0.519
+171101,hflip+photo,9.829,0.488,0.8,7.064,20.602,5.923,0.844

@@ -1,0 +1,15 @@
+{
+  "test_session": "214411",
+  "condition": "none",
+  "train_s": 125.34037113189697,
+  "oracle": {
+    "median_px": 3.904028078883488,
+    "mean_px": 4.565161159271481,
+    "mean_norm": 0.04876072739268765,
+    "pck10": 0.95,
+    "pck05": 0.609375,
+    "pupil_median_px": 3.1566734999791533,
+    "eye_median_px": 4.7478533768583855,
+    "orientation": 1.0
+  }
+}

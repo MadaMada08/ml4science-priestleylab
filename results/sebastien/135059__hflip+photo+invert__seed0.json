@@ -1,0 +1,15 @@
+{
+  "test_session": "135059",
+  "condition": "hflip+photo+invert",
+  "train_s": 142.01958012580872,
+  "oracle": {
+    "median_px": 11.480848814533097,
+    "mean_px": 12.121240528105073,
+    "mean_norm": 0.07835502252112433,
+    "pck10": 0.7,
+    "pck05": 0.30625,
+    "pupil_median_px": 11.786701058037357,
+    "eye_median_px": 11.1513360351079,
+    "orientation": 1.0
+  }
+}
