@@ -1,8 +1,8 @@
 """Build a DeepLabCut project from a labeled-data folder.
 
-Reconstructs a DLC project around existing labels: makes a bootstrap video
-(DLC needs one video to create a project), configures it to the lab's
-settings, and copies the labeled-data in. One call per data variant.
+`labeled_dir` is the path to a labeled-data folder whose subfolders are
+sessions, e.g. data/labeled-data or a preprocessed variant
+data/labeled-data_flipped. All variants live inside the single data/ folder.
 """
 
 import shutil
@@ -16,16 +16,16 @@ BODYPARTS = ["eye-anterior", "eye-posterior", "eye-dorsal", "eye-ventral",
              "pupil-anterior", "pupil-posterior", "pupil-dorsal", "pupil-ventral"]
 
 
-def labeled_sessions(data_root):
-    root = Path(data_root) / "labeled-data"
+def _sessions(labeled_dir):
+    root = Path(labeled_dir)
     return sorted(p.name for p in root.iterdir()
                   if p.is_dir() and list(p.glob("CollectedData_*.h5")))
 
 
-def _bootstrap_video(data_root, session):
-    frames = sorted((Path(data_root) / "labeled-data" / session).glob("img*.png"))
+def _bootstrap_video(labeled_dir, session):
+    frames = sorted((Path(labeled_dir) / session).glob("img*.png"))
     h, w = cv2.imread(str(frames[0])).shape[:2]
-    out = Path(data_root) / "bootstrap.avi"
+    out = Path(labeled_dir).parent / "bootstrap.avi"
     vw = cv2.VideoWriter(str(out), cv2.VideoWriter_fourcc(*"MJPG"), 10, (w, h))
     for f in frames:
         vw.write(cv2.imread(str(f)))
@@ -38,16 +38,17 @@ def _existing_project(work_dir, name):
     return matches[0] if matches else None
 
 
-def build_project(data_root, name, work_dir="./dlc", frame_size=(1280, 1024)):
-    """Create a DLC project named <name> from the labels in data_root. Returns config_path."""
+def build_project(labeled_dir, name, work_dir="./dlc", frame_size=(1280, 1024)):
+    """Create a DLC project named <name> from the labels in labeled_dir. Returns config_path."""
     existing = _existing_project(work_dir, name)
     if existing:
         raise FileExistsError(
             f"Project '{name}' already exists at {existing}. "
             f"delete it or choose a different name.")
-    data_root = Path(data_root)
-    sessions = labeled_sessions(data_root)
-    boot = _bootstrap_video(data_root, sessions[0])
+
+    labeled_dir = Path(labeled_dir)
+    sessions = _sessions(labeled_dir)
+    boot = _bootstrap_video(labeled_dir, sessions[0])
 
     config_path = deeplabcut.create_new_project(
         name, "dani", [boot], working_directory=str(work_dir), copy_videos=False)
@@ -62,7 +63,7 @@ def build_project(data_root, name, work_dir="./dlc", frame_size=(1280, 1024)):
     auxiliaryfunctions.write_config(config_path, cfg)
 
     for s in sessions:
-        src, dst = data_root / "labeled-data" / s, Path(proj) / "labeled-data" / s
+        src, dst = labeled_dir / s, Path(proj) / "labeled-data" / s
         dst.mkdir(parents=True, exist_ok=True)
         for f in src.iterdir():
             shutil.copy2(f, dst / f.name)
