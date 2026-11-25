@@ -33,8 +33,18 @@ def _bootstrap_video(data_root, session):
     return str(out)
 
 
+def _existing_project(work_dir, name):
+    matches = sorted(Path(work_dir).glob(f"{name}-*"))
+    return matches[0] if matches else None
+
+
 def build_project(data_root, name, work_dir="./dlc", frame_size=(1280, 1024)):
     """Create a DLC project named <name> from the labels in data_root. Returns config_path."""
+    existing = _existing_project(work_dir, name)
+    if existing:
+        raise FileExistsError(
+            f"Project '{name}' already exists at {existing}. "
+            f"delete it or choose a different name.")
     data_root = Path(data_root)
     sessions = labeled_sessions(data_root)
     boot = _bootstrap_video(data_root, sessions[0])

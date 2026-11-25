@@ -33,9 +33,9 @@ def _create_shuffle(config_path, shuffle, train, test):
             raise
 
 
-def build_experiment(data_root, name, work_dir="./dlc"):
-    """Build project <name> from data_root and create the 3 scenario shuffles. Returns config_path."""
-    config_path = _data.build_project(data_root, name, work_dir)
+def build_experiment(labeled_dir, name, work_dir="./dlc"):
+    """Build project <name> from labeled_dir and create the 3 scenario shuffles. Returns config_path."""
+    config_path = _data.build_project(labeled_dir, name, work_dir)
 
     deeplabcut.create_training_dataset(config_path, Shuffles=[99])  # dummy merge → learn frame order
     df = _merged_df(config_path)
