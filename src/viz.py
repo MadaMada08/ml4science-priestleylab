@@ -1,14 +1,14 @@
 """Visualization helpers for the pupil/eye DeepLabCut project.
 
-Ground truth and predictions are read from a DLC project folder:
-  <project>/labeled-data/<session>/CollectedData_*.h5   (human labels + frames)
-  <project>/evaluation-results-pytorch/**/**.h5          (model predictions)
+Works on either a DLC project folder (has labeled-data/ and
+evaluation-results-pytorch/) or a raw labeled-data folder (sessions directly
+inside). Predictions and training stats take a shuffle number, since a project
+holds one per scenario (1=hard, 2=easy, 3=mixed).
 
-Public functions:
-  show_ground_truth(project, session, image=None)   -> dots
-  show_predictions(project, session, image=None)    -> filled triangles
-  compare(project, session, image=None)             -> both, side by side
-  load_training_stats(project) / per_keypoint_error(project, session)
+  show_ground_truth(path, session, image=None)                 -> dots
+  show_predictions(project, session, image=None, shuffle=1)    -> filled triangles
+  compare(project, session, image=None, shuffle=1)             -> both, side by side
+  load_training_stats(project, shuffle=1) / per_keypoint_error(project, session, shuffle=1)
   plot_training_curves(stats, evals, per_keypoint=None)
 """
 
@@ -21,40 +21,44 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from PIL import Image
 
-KEYPOINTS = [
-    "eye-anterior",
-    "eye-posterior",
-    "eye-dorsal",
-    "eye-ventral",
-    "pupil-anterior",
-    "pupil-posterior",
-    "pupil-dorsal",
-    "pupil-ventral",
-]
+KEYPOINTS = ["eye-anterior", "eye-posterior", "eye-dorsal", "eye-ventral",
+             "pupil-anterior", "pupil-posterior", "pupil-dorsal", "pupil-ventral"]
 
-_COLORS = {
-    bp: plt.cm.rainbow(i / (len(KEYPOINTS) - 1)) for i, bp in enumerate(KEYPOINTS)
-}
+_COLORS = {bp: plt.cm.rainbow(i / (len(KEYPOINTS) - 1)) for i, bp in enumerate(KEYPOINTS)}
 
 
 # ----- internal helpers -------------------------------------------------------
 
-
 def _imread(path):
     path = os.path.abspath(path)
-    if os.name == "nt" and len(path) > 250:  # Windows MAX_PATH escape
+    if os.name == "nt" and len(path) > 250:
         path = "\\\\?\\" + path
     return np.asarray(Image.open(path))
 
 
-def _load_labels(project, session):
-    h5 = next((Path(project) / "labeled-data" / session).glob("CollectedData_*.h5"))
+def _session_dir(path, session):
+    p = Path(path)
+    for cand in (p / "labeled-data" / session, p / session):
+        if cand.exists():
+            return cand
+    raise FileNotFoundError(f"session '{session}' not found under {path}")
+
+
+def _load_labels(path, session):
+    h5 = next(_session_dir(path, session).glob("CollectedData_*.h5"))
     return pd.read_hdf(h5)
 
 
-def _load_predictions(project):
-    h5 = next((Path(project) / "evaluation-results-pytorch").rglob("*.h5"))
-    return pd.read_hdf(h5)
+def _eval_h5(project, shuffle):
+    cands = [p for p in (Path(project) / "evaluation-results-pytorch").rglob("*.h5")
+             if f"shuffle{shuffle}_" in p.name]
+    if not cands:
+        raise FileNotFoundError(f"no evaluation results for shuffle {shuffle} under {project}")
+    return sorted(cands)[0]
+
+
+def _load_predictions(project, shuffle=1):
+    return pd.read_hdf(_eval_h5(project, shuffle))
 
 
 def _coord_level(df):
@@ -83,8 +87,11 @@ def _point(df, idx, bodypart):
     return g("x"), g("y"), g("likelihood")
 
 
-def _images_of(df, session):
-    return [idx[-1] for idx in df.index if idx[1] == session]
+def _row(df, session, image):
+    names = [ix[-1] for ix in df.index if ix[1] == session]
+    image = image or names[0]
+    idx = next(ix for ix in df.index if ix[1] == session and ix[-1] == image)
+    return idx, image
 
 
 def _scatter(ax, df, idx, marker, size, pcutoff=None):
@@ -93,101 +100,80 @@ def _scatter(ax, df, idx, marker, size, pcutoff=None):
         if x is None:
             continue
         faded = pcutoff is not None and p is not None and p < pcutoff
-        ax.scatter(
-            x,
-            y,
-            s=size,
-            marker=marker,
-            color=[_COLORS[bp]],
-            alpha=0.25 if faded else 1.0,
-            edgecolors="black",
-            linewidths=0.4,
-        )
+        ax.scatter(x, y, s=size, marker=marker,
+                   facecolors="none" if faded else [_COLORS[bp]],
+                   edgecolors=[_COLORS[bp]] if faded else "black",
+                   linewidths=1.6 if faded else 0.4, alpha=0.9)
 
 
 def _legend(ax):
-    handles = [
-        Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
-            markerfacecolor=_COLORS[bp],
-            markersize=8,
-            label=bp,
-        )
-        for bp in KEYPOINTS
-    ]
+    handles = [Line2D([0], [0], marker="o", color="w", markerfacecolor=_COLORS[bp],
+                      markersize=8, label=bp) for bp in KEYPOINTS]
     ax.legend(handles=handles, fontsize=7, loc="upper right", framealpha=0.6)
 
 
 # ----- single-image views -----------------------------------------------------
 
-
-def show_ground_truth(project, session, image=None, ax=None):
-    """Human labels (dots) on one frame; defaults to the first frame of the session."""
-    df = _load_labels(project, session)
-    image = image or _images_of(df, session)[0]
-    idx = ("labeled-data", session, image)
+def show_ground_truth(path, session, image=None, ax=None):
+    """Human labels (dots). `path` may be a project or a raw labeled-data folder."""
+    df = _load_labels(path, session)
+    idx, image = _row(df, session, image)
     own = ax is None
     if own:
         _, ax = plt.subplots(figsize=(7, 6))
-    ax.imshow(_imread(Path(project) / "labeled-data" / session / image), cmap="gray")
+    ax.imshow(_imread(_session_dir(path, session) / image), cmap="gray")
     _scatter(ax, df, idx, marker="o", size=45)
     ax.set_title(f"Ground truth — {session}/{image}", fontsize=9)
     ax.axis("off")
     if own:
-        _legend(ax)
-        plt.tight_layout()
-        plt.show()
+        _legend(ax); plt.tight_layout(); plt.show()
     return ax
 
 
-def show_predictions(project, session, image=None, pcutoff=0.6, ax=None):
-    """Model predictions (filled triangles) on one frame; faded if below pcutoff."""
-    preds = _load_predictions(project)
-    image = image or _images_of(preds, session)[0]
-    idx = ("labeled-data", session, image)
+def show_predictions(project, session, image=None, shuffle=1, pcutoff=0.6, ax=None):
+    """Model predictions (filled triangles) for a given shuffle; faded if below pcutoff."""
+    preds = _load_predictions(project, shuffle)
+    idx, image = _row(preds, session, image)
     own = ax is None
     if own:
         _, ax = plt.subplots(figsize=(7, 6))
-    ax.imshow(_imread(Path(project) / "labeled-data" / session / image), cmap="gray")
+    ax.imshow(_imread(_session_dir(project, session) / image), cmap="gray")
     _scatter(ax, preds, idx, marker="^", size=60, pcutoff=pcutoff)
-    ax.set_title(f"Predictions — {session}/{image}", fontsize=9)
+    ax.set_title(f"Predictions (shuffle {shuffle}) — {session}/{image}", fontsize=9)
     ax.axis("off")
     if own:
-        _legend(ax)
-        plt.tight_layout()
-        plt.show()
+        _legend(ax); plt.tight_layout(); plt.show()
     return ax
 
 
-def compare(project, session, image=None, pcutoff=0.6):
-    """Ground truth vs predictions, side by side, for one frame."""
-    preds = _load_predictions(project)
-    image = image or _images_of(preds, session)[0]
+def compare(project, session, image=None, shuffle=1, pcutoff=0.6):
+    """Ground truth vs predictions, side by side, for one frame of one shuffle."""
+    preds = _load_predictions(project, shuffle)
+    _, image = _row(preds, session, image)
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(14, 6))
     show_ground_truth(project, session, image, ax=a1)
-    show_predictions(project, session, image, pcutoff=pcutoff, ax=a2)
+    show_predictions(project, session, image, shuffle=shuffle, pcutoff=pcutoff, ax=a2)
     _legend(a2)
-    plt.tight_layout()
-    plt.show()
+    plt.tight_layout(); plt.show()
 
 
 # ----- training curves --------------------------------------------------------
 
-
-def load_training_stats(project):
-    """Return (stats, evals): full per-epoch log and the rows where test was measured."""
-    csv = next((Path(project) / "dlc-models-pytorch").rglob("learning_stats.csv"))
+def load_training_stats(project, shuffle=1):
+    """Return (stats, evals) for a shuffle: full per-epoch log and the evaluated rows."""
+    csv = None
+    for c in (Path(project) / "dlc-models-pytorch").rglob("learning_stats.csv"):
+        if c.parent.parent.name.endswith(f"shuffle{shuffle}"):
+            csv = c; break
+    if csv is None:
+        raise FileNotFoundError(f"no learning_stats for shuffle {shuffle} under {project}")
     stats = pd.read_csv(csv)
-    evals = stats.dropna(subset=["metrics/test.rmse"])
-    return stats, evals
+    return stats, stats.dropna(subset=["metrics/test.rmse"])
 
 
-def per_keypoint_error(project, session):
+def per_keypoint_error(project, session, shuffle=1):
     """Mean pixel error per bodypart, predictions vs ground truth, on one session."""
-    preds, truth = _load_predictions(project), _load_labels(project, session)
+    preds, truth = _load_predictions(project, shuffle), _load_labels(project, session)
     out = {}
     for bp in KEYPOINTS:
         errs = []
@@ -201,59 +187,34 @@ def per_keypoint_error(project, session):
 
 
 def plot_training_curves(stats, evals, per_keypoint=None, test_session="110535"):
-    """The 4-panel baseline figure. Pass values from load_training_stats / per_keypoint_error."""
+    """The 4-panel figure. Pass values from load_training_stats / per_keypoint_error."""
     best = evals.loc[evals["metrics/test.rmse"].idxmin()]
     fig, axes = plt.subplots(2, 2, figsize=(13, 9))
 
     ax = axes[0, 0]
-    ax.plot(stats["step"], stats["losses/train.total_loss"], label="Train (7 sessions)")
-    ax.plot(
-        evals["step"],
-        evals["losses/eval.total_loss"],
-        marker="o",
-        label=f"Test ({test_session})",
-    )
-    ax.set_yscale("log")
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss")
-    ax.set_title("Loss — train vs test (divergence = overfitting)")
-    ax.legend()
+    ax.plot(stats["step"], stats["losses/train.total_loss"], label="Train")
+    ax.plot(evals["step"], evals["losses/eval.total_loss"], marker="o", label=f"Test ({test_session})")
+    ax.set_yscale("log"); ax.set_xlabel("Epoch"); ax.set_ylabel("Loss")
+    ax.set_title("Loss — train vs test (divergence = overfitting)"); ax.legend()
 
     ax = axes[0, 1]
     ax.plot(evals["step"], evals["metrics/test.rmse"], marker="o", label="RMSE (all)")
-    ax.plot(
-        evals["step"],
-        evals["metrics/test.rmse_pcutoff"],
-        marker="s",
-        label="RMSE (confident)",
-    )
-    ax.axvline(
-        best["step"], color="grey", ls="--", label=f"Best epoch ({int(best['step'])})"
-    )
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Error (px)")
-    ax.set_title(f"Test position error on {test_session}")
-    ax.legend()
+    ax.plot(evals["step"], evals["metrics/test.rmse_pcutoff"], marker="s", label="RMSE (confident)")
+    ax.axvline(best["step"], color="grey", ls="--", label=f"Best epoch ({int(best['step'])})")
+    ax.set_xlabel("Epoch"); ax.set_ylabel("Error (px)")
+    ax.set_title(f"Test position error on {test_session}"); ax.legend()
 
     ax = axes[1, 0]
-    ax.plot(
-        evals["step"], evals["metrics/test.mAP"], marker="o", label="mAP (precision)"
-    )
+    ax.plot(evals["step"], evals["metrics/test.mAP"], marker="o", label="mAP (precision)")
     ax.plot(evals["step"], evals["metrics/test.mAR"], marker="s", label="mAR (recall)")
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Score (0–100)")
-    ax.set_title(f"Detection quality on {test_session}")
-    ax.legend()
+    ax.set_xlabel("Epoch"); ax.set_ylabel("Score (0–100)")
+    ax.set_title(f"Detection quality on {test_session}"); ax.legend()
 
     ax = axes[1, 1]
     if per_keypoint:
-        ax.barh(list(per_keypoint), list(per_keypoint.values()))
-        ax.invert_yaxis()
-        ax.set_xlabel("Test error (px)")
-        ax.set_title("Per-keypoint test error")
+        ax.barh(list(per_keypoint), list(per_keypoint.values())); ax.invert_yaxis()
+        ax.set_xlabel("Test error (px)"); ax.set_title("Per-keypoint test error")
     else:
-        ax.axis("off")
-        ax.set_title("Per-keypoint error (pass per_keypoint=...)")
+        ax.axis("off"); ax.set_title("Per-keypoint error (pass per_keypoint=...)")
 
-    plt.tight_layout()
-    plt.show()
+    plt.tight_layout(); plt.show()
