@@ -166,6 +166,23 @@ def show_all_variants(session, data_root="./data"):
             show_ground_truth(v, session)
 
 
+def compare_models(projects, session, image=None, shuffle=1, pcutoff=0.6):
+    """Ground truth + each model's predictions on the SAME frame, side by side.
+    projects: dict {name: project_path}; each must have eval results for `shuffle`."""
+    names = list(projects)
+    labels = _load_labels(projects[names[0]], session)
+    _, image = _row(labels, session, image)          # lock one frame for all panels
+    n = len(projects) + 1
+    fig, axes = plt.subplots(1, n, figsize=(6.5 * n, 6))
+    show_ground_truth(projects[names[0]], session, image, ax=axes[0])
+    axes[0].set_title(f"ground truth — {session}", fontsize=10)
+    for ax, name in zip(axes[1:], names):
+        show_predictions(projects[name], session, image, shuffle=shuffle, pcutoff=pcutoff, ax=ax)
+        ax.set_title(f"{name}", fontsize=10)
+    _legend(axes[-1])
+    plt.tight_layout(); plt.show()
+
+
 # ----- training curves --------------------------------------------------------
 
 def load_training_stats(project, shuffle=1):
